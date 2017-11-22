@@ -1,7 +1,10 @@
 package goronald.web.id.mynotesapp;
 
+import android.content.ContentValues;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.database.Cursor;
+import android.net.Uri;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -19,6 +22,11 @@ import java.util.Date;
 import goronald.web.id.mynotesapp.db.NoteHelper;
 import goronald.web.id.mynotesapp.entity.Note;
 
+import static goronald.web.id.mynotesapp.db.DatabaseContract.CONTENT_URI;
+import static goronald.web.id.mynotesapp.db.DatabaseContract.NoteColumns.DATE;
+import static goronald.web.id.mynotesapp.db.DatabaseContract.NoteColumns.DESCRIPTION;
+import static goronald.web.id.mynotesapp.db.DatabaseContract.NoteColumns.TITLE;
+
 public class FormAddUpdateActivity extends AppCompatActivity implements
         View.OnClickListener {
     EditText edtTitle, edtDescription;
@@ -28,6 +36,7 @@ public class FormAddUpdateActivity extends AppCompatActivity implements
     public static String EXTRA_POSITION = "extra_position";
 
     private boolean isEdit = false;
+
     public static int REQUEST_ADD = 100;
     public static int RESULT_ADD = 101;
     public static int REQUEST_UPDATE = 200;
@@ -35,7 +44,6 @@ public class FormAddUpdateActivity extends AppCompatActivity implements
     public static int RESULT_DELETE = 301;
 
     private Note note;
-    private int position;
     private NoteHelper noteHelper;
 
     @Override
@@ -51,16 +59,23 @@ public class FormAddUpdateActivity extends AppCompatActivity implements
         noteHelper = new NoteHelper(this);
         noteHelper.open();
 
-        note = getIntent().getParcelableExtra(EXTRA_NOTE);
-        if (note != null) {
-            position = getIntent().getIntExtra(EXTRA_POSITION, 0);
-            isEdit = true;
+        Uri uri = getIntent().getData();
+
+        if (uri != null) {
+            Cursor cursor = getContentResolver().query(uri, null, null,
+                    null, null);
+            if (cursor != null) {
+                if (cursor.moveToFirst())
+                    note = new Note(cursor);
+                cursor.close();
+            }
         }
 
         String actionBarTitle = null;
         String btnTitle = null;
 
-        if (isEdit) {
+        if (note != null) {
+            isEdit = true;
             actionBarTitle = "Ubah";
             btnTitle = "Update";
             edtTitle.setText(note.getTitle());
@@ -97,20 +112,17 @@ public class FormAddUpdateActivity extends AppCompatActivity implements
             }
 
             if (!isEmpty) {
-                Note newNote = new Note();
-                newNote.setTitle(title);
-                newNote.setDescription(description);
-                Intent intent = new Intent();
+                ContentValues values = new ContentValues();
+                values.put(TITLE, title);
+                values.put(DESCRIPTION, description);
+
                 if (isEdit) {
-                    newNote.setDate(note.getDate());
-                    newNote.setId(note.getId());
-                    noteHelper.update(newNote);
-                    intent.putExtra(EXTRA_POSITION, position);
-                    setResult(RESULT_UPDATE, intent);
+                    getContentResolver().update(getIntent().getData(), values, null, null);
+                    setResult(RESULT_UPDATE);
                     finish();
                 } else {
-                    newNote.setDate(getCurrentDate());
-                    noteHelper.insert(newNote);
+                    values.put(DATE, getCurrentDate());
+                    getContentResolver().insert(CONTENT_URI, values);
                     setResult(RESULT_ADD);
                     finish();
                 }
@@ -167,13 +179,11 @@ public class FormAddUpdateActivity extends AppCompatActivity implements
                 .setPositiveButton("Ya", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialogInterface, int id) {
-                        if(isDialogClose) {
+                        if (isDialogClose) {
                             finish();
                         } else {
-                            noteHelper.delete(note.getId());
-                            Intent intent = new Intent();
-                            intent.putExtra(EXTRA_POSITION, position);
-                            setResult(RESULT_DELETE, intent);
+                            getContentResolver().delete(getIntent().getData(), null, null);
+                            setResult(RESULT_DELETE, null);
                             finish();
                         }
                     }

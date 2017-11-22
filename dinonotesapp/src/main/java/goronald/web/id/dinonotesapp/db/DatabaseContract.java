@@ -1,4 +1,4 @@
-package goronald.web.id.mynotesapp.db;
+package goronald.web.id.dinonotesapp.db;
 
 import android.database.Cursor;
 import android.net.Uri;
